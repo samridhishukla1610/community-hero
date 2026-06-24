@@ -7,35 +7,37 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBt5PUBn8luuvKPyE8QPzniJV9sCX9PjXg&callback=initMap&libraries=places" async defer></script>
 </head>
 <body>
 
-  <!-- HEADER -->
   <header class="header">
     <div class="logo">
       <span class="logo-icon">🏙️</span>
       <span class="logo-text">CivicLens</span>
     </div>
     <nav class="nav">
-      <button class="nav-btn active" onclick="showSection('report')">Report Issue</button>
-      <button class="nav-btn" onclick="showSection('map')">Live Map</button>
-      <button class="nav-btn" onclick="showSection('dashboard')">Dashboard</button>
+      <button class="nav-btn active" onclick="showSection('report', this)">Report Issue</button>
+      <button class="nav-btn" onclick="showSection('map', this)">Live Map</button>
+      <button class="nav-btn" onclick="showSection('dashboard', this)">Dashboard</button>
     </nav>
     <div class="header-badge">Powered by Gemini AI</div>
   </header>
 
   <!-- HERO -->
-  <section class="hero" id="hero">
-    <div class="hero-content">
-      <div class="hero-tag">AI-Powered Civic Platform</div>
-      <h1 class="hero-title">See it. <span class="accent">Snap it.</span> Fix it.</h1>
-      <p class="hero-sub">Upload a photo of any community issue — potholes, leaks, broken lights — and Gemini AI instantly analyzes, categorizes, and logs it on the city map.</p>
-      <button class="hero-cta" onclick="showSection('report')">Report an Issue →</button>
-    </div>
-    <div class="hero-stats">
-      <div class="stat"><span class="stat-num" id="stat-total">0</span><span class="stat-label">Issues Reported</span></div>
-      <div class="stat"><span class="stat-num" id="stat-resolved">0</span><span class="stat-label">Resolved</span></div>
-      <div class="stat"><span class="stat-num" id="stat-pending">0</span><span class="stat-label">In Progress</span></div>
+  <section id="hero">
+    <div class="hero">
+      <div class="hero-content">
+        <div class="hero-tag">AI-Powered Civic Platform</div>
+        <h1 class="hero-title">See it. <span class="accent">Snap it.</span> Fix it.</h1>
+        <p class="hero-sub">Upload a photo of any community issue — potholes, leaks, broken lights — and Gemini AI instantly analyzes, categorizes, and pins it on the city map.</p>
+        <button class="hero-cta" onclick="showSection('report', document.querySelector('.nav-btn'))">Report an Issue →</button>
+      </div>
+      <div class="hero-stats">
+        <div class="stat"><span class="stat-num" id="stat-total">0</span><span class="stat-label">Issues Reported</span></div>
+        <div class="stat"><span class="stat-num" id="stat-resolved">0</span><span class="stat-label">Resolved</span></div>
+        <div class="stat"><span class="stat-num" id="stat-pending">0</span><span class="stat-label">In Progress</span></div>
+      </div>
     </div>
   </section>
 
@@ -44,10 +46,8 @@
     <div class="container">
       <h2 class="section-title">Report a Community Issue</h2>
       <p class="section-sub">Upload a photo and let Gemini AI do the rest</p>
-
       <div class="report-grid">
-        <!-- Upload Card -->
-        <div class="card upload-card" id="uploadCard">
+        <div class="card upload-card">
           <div class="upload-zone" id="uploadZone" onclick="document.getElementById('photoInput').click()">
             <div class="upload-icon">📸</div>
             <p class="upload-text">Click to upload a photo</p>
@@ -58,38 +58,23 @@
             <img id="photoPreview" class="photo-preview" alt="Issue photo"/>
             <button class="btn-secondary small" onclick="resetPhoto()">Change Photo</button>
           </div>
-
           <div class="ai-status hidden" id="aiStatus">
             <div class="ai-loader">
               <div class="pulse-ring"></div>
               <span>Gemini is analyzing your photo...</span>
             </div>
           </div>
-
           <div class="ai-result hidden" id="aiResult">
             <div class="ai-badge">✨ AI Analysis Complete</div>
             <div class="ai-fields">
-              <div class="ai-field">
-                <label>Issue Type</label>
-                <div class="ai-value" id="aiCategory">—</div>
-              </div>
-              <div class="ai-field">
-                <label>Severity</label>
-                <div class="ai-value severity-badge" id="aiSeverity">—</div>
-              </div>
-              <div class="ai-field">
-                <label>Description</label>
-                <div class="ai-value" id="aiDescription">—</div>
-              </div>
-              <div class="ai-field">
-                <label>Suggested Action</label>
-                <div class="ai-value" id="aiAction">—</div>
-              </div>
+              <div class="ai-field"><label>Issue Type</label><div class="ai-value" id="aiCategory">—</div></div>
+              <div class="ai-field"><label>Severity</label><div class="ai-value severity-badge" id="aiSeverity">—</div></div>
+              <div class="ai-field"><label>Description</label><div class="ai-value" id="aiDescription">—</div></div>
+              <div class="ai-field"><label>Suggested Action</label><div class="ai-value" id="aiAction">—</div></div>
             </div>
           </div>
         </div>
 
-        <!-- Form Card -->
         <div class="card form-card">
           <div class="form-group">
             <label class="form-label">Issue Title</label>
@@ -144,16 +129,14 @@
   <section class="section hidden" id="section-map">
     <div class="container">
       <h2 class="section-title">Live Issue Map</h2>
-      <p class="section-sub">All reported community issues in real-time</p>
-      <div class="map-wrap">
-        <div id="map" class="map-placeholder">
-          <div class="map-mock">
-            <div class="map-info">🗺️ Google Maps will appear here</div>
-            <p class="map-hint">Add your Google Maps API key in <code>js/app.js</code> to enable live map</p>
-            <div class="issues-list" id="issuesList"></div>
-          </div>
-        </div>
+      <p class="section-sub">All reported community issues pinned in real-time</p>
+      <div class="map-legend">
+        <span class="legend-item"><span class="dot" style="background:#ff4757"></span> Critical</span>
+        <span class="legend-item"><span class="dot" style="background:#ff8c42"></span> High</span>
+        <span class="legend-item"><span class="dot" style="background:#ffd700"></span> Medium</span>
+        <span class="legend-item"><span class="dot" style="background:#00c48c"></span> Low</span>
       </div>
+      <div id="map" style="width:100%;height:520px;border-radius:16px;border:1px solid var(--border);"></div>
     </div>
   </section>
 
@@ -162,26 +145,12 @@
     <div class="container">
       <h2 class="section-title">Impact Dashboard</h2>
       <p class="section-sub">Community progress at a glance</p>
-
       <div class="dash-grid">
-        <div class="dash-card blue">
-          <div class="dash-num" id="dash-total">0</div>
-          <div class="dash-label">Total Issues</div>
-        </div>
-        <div class="dash-card green">
-          <div class="dash-num" id="dash-resolved">0</div>
-          <div class="dash-label">Resolved</div>
-        </div>
-        <div class="dash-card orange">
-          <div class="dash-num" id="dash-pending">0</div>
-          <div class="dash-label">In Progress</div>
-        </div>
-        <div class="dash-card red">
-          <div class="dash-num" id="dash-critical">0</div>
-          <div class="dash-label">Critical Issues</div>
-        </div>
+        <div class="dash-card blue"><div class="dash-num" id="dash-total">0</div><div class="dash-label">Total Issues</div></div>
+        <div class="dash-card green"><div class="dash-num" id="dash-resolved">0</div><div class="dash-label">Resolved</div></div>
+        <div class="dash-card orange"><div class="dash-num" id="dash-pending">0</div><div class="dash-label">In Progress</div></div>
+        <div class="dash-card red"><div class="dash-num" id="dash-critical">0</div><div class="dash-label">Critical Issues</div></div>
       </div>
-
       <div class="issues-table-wrap">
         <h3 class="table-title">All Reported Issues</h3>
         <div id="issuesTable" class="issues-table"></div>
@@ -189,13 +158,11 @@
     </div>
   </section>
 
-  <!-- SUCCESS TOAST -->
   <div class="toast hidden" id="toast">
     <span class="toast-icon">✅</span>
     <span id="toastMsg">Issue submitted successfully!</span>
   </div>
 
-  <!-- API KEY MODAL -->
   <div class="modal-overlay hidden" id="apiModal">
     <div class="modal">
       <h3>Enter Your Gemini API Key</h3>
