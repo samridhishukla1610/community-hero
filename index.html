@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
 
@@ -19,6 +20,7 @@
       <button class="nav-btn active" onclick="showSection('report', this)">Report Issue</button>
       <button class="nav-btn" onclick="showSection('map', this)">Live Map</button>
       <button class="nav-btn" onclick="showSection('dashboard', this)">Dashboard</button>
+      <button class="nav-btn" onclick="showSection('leaderboard', this)">Leaderboard</button>
     </nav>
     <div class="header-badge">Powered by Gemini AI</div>
   </header>
@@ -70,6 +72,12 @@
               <div class="ai-field"><label>Severity</label><div class="ai-value severity-badge" id="aiSeverity">—</div></div>
               <div class="ai-field"><label>Description</label><div class="ai-value" id="aiDescription">—</div></div>
               <div class="ai-field"><label>Suggested Action</label><div class="ai-value" id="aiAction">—</div></div>
+            </div>
+            <div class="ai-section-label">🤖 Agentic Decision Chain</div>
+            <div class="ai-fields">
+              <div class="ai-field"><label>Why this severity</label><div class="ai-value" id="aiReasoning">—</div></div>
+              <div class="ai-field"><label>Routed to Department</label><div class="ai-value" id="aiDepartment">—</div></div>
+              <div class="ai-field"><label>Auto-Drafted Notification</label><div class="ai-value" id="aiDraft">—</div></div>
             </div>
           </div>
         </div>
@@ -157,6 +165,15 @@
     </div>
   </section>
 
+  <!-- LEADERBOARD SECTION -->
+  <section class="section hidden" id="section-leaderboard">
+    <div class="container">
+      <h2 class="section-title">Community Leaderboard</h2>
+      <p class="section-sub">Top civic reporters making the biggest impact</p>
+      <div class="leaderboard-list" id="leaderboardList"></div>
+    </div>
+  </section>
+
   <div class="toast hidden" id="toast">
     <span class="toast-icon">✅</span>
     <span id="toastMsg">Issue submitted successfully!</span>
@@ -174,8 +191,19 @@
     </div>
   </div>
 
+  <div class="modal-overlay hidden" id="shareModal">
+    <div class="modal">
+      <h3>📤 Share Report Card</h3>
+      <p>Download this card to share on social media and rally support for this issue.</p>
+      <div class="share-card" id="shareCardContent"></div>
+      <div class="modal-btns">
+        <button class="btn-primary" onclick="downloadShareCard()">Download Image</button>
+        <button class="btn-secondary" onclick="closeShareModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/app.js"></script>
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBt5PUBn8luuvKPyE8QPzniJV9sCX9PjXg&callback=initMap&libraries=places" async></script>
 </body>
 </html>
-
