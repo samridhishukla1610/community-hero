@@ -7,6 +7,8 @@ let issues = JSON.parse(localStorage.getItem('civicIssues') || '[]');
 let currentPhotoBase64 = null;
 let currentSeverity = '';
 let currentAIResult = null;
+let currentChatIssueId = null;
+let isChatLoading = false;
 let map = null;
 let mapMarkers = [];
 
@@ -16,7 +18,7 @@ const CATEGORY_ICONS = {
 };
 
 const SEVERITY_COLORS = {
-  'Low': '#00c48c', 'Medium': '#ffd700', 'High': '#ff8c42', 'Critical': '#ff4757'
+  'Low': '#5b7563', 'Medium': '#c8932e', 'High': '#bd6433', 'Critical': '#a93226'
 };
 
 // Fallback department routing if AI doesn't return one
@@ -45,17 +47,18 @@ function initMap() {
     center: { lat: 20.5937, lng: 78.9629 }, // India center
     zoom: 5,
     styles: [
-      { elementType: 'geometry', stylers: [{ color: '#1a1f2e' }] },
-      { elementType: 'labels.text.fill', stylers: [{ color: '#7a8099' }] },
-      { elementType: 'labels.text.stroke', stylers: [{ color: '#1a1f2e' }] },
-      { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2a3040' }] },
-      { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#1a1f2e' }] },
-      { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0d1117' }] },
+      { elementType: 'geometry', stylers: [{ color: '#f3ecde' }] },
+      { elementType: 'labels.text.fill', stylers: [{ color: '#6b6354' }] },
+      { elementType: 'labels.text.stroke', stylers: [{ color: '#f3ecde' }] },
+      { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#e3d8bf' }] },
+      { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#d8cbb0' }] },
+      { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#d8cbb0' }] },
+      { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#bcd0cc' }] },
+      { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: '#ece3cf' }] },
       { featureType: 'poi', stylers: [{ visibility: 'off' }] },
     ]
   });
 
-  // Try to center on user location
   if (navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(pos => {
       map.setCenter({ lat: pos.coords.latitude, lng: pos.coords.longitude });
@@ -129,15 +132,15 @@ function renderMapMarkers() {
 
     marker.addListener('click', () => {
       infoWindow.setContent(`
-        <div style="background:#1e2330;color:#e8eaf0;padding:12px;border-radius:10px;min-width:200px;font-family:Inter,sans-serif">
+        <div style="background:#fcf8ee;color:#241f18;padding:12px;border-radius:2px;min-width:200px;font-family:'IBM Plex Sans',sans-serif;border:1px solid #241f18">
           <div style="font-size:1.2rem;margin-bottom:4px">${CATEGORY_ICONS[issue.category] || '📌'}</div>
-          <div style="font-weight:600;margin-bottom:4px">${issue.title}</div>
-          <div style="font-size:0.8rem;color:#7a8099;margin-bottom:8px">📍 ${issue.location}</div>
+          <div style="font-weight:600;margin-bottom:4px;font-family:'Fraunces',serif">${issue.title}</div>
+          <div style="font-size:0.78rem;color:#6b6354;margin-bottom:8px;font-family:'IBM Plex Mono',monospace">📍 ${issue.location}</div>
           <div style="font-size:0.8rem;margin-bottom:4px">${issue.description}</div>
           <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-            <span style="background:${SEVERITY_COLORS[issue.severity]}22;color:${SEVERITY_COLORS[issue.severity]};padding:2px 8px;border-radius:99px;font-size:0.75rem;font-weight:600">${issue.severity}</span>
-            <span style="background:#2a304044;color:#7a8099;padding:2px 8px;border-radius:99px;font-size:0.75rem">${issue.status}</span>
-            ${issue.reportCount > 1 ? `<span style="background:#7c5cfc33;color:#7c5cfc;padding:2px 8px;border-radius:99px;font-size:0.75rem;font-weight:600">👥 ${issue.reportCount} reports</span>` : ''}
+            <span style="background:${SEVERITY_COLORS[issue.severity]}22;color:${SEVERITY_COLORS[issue.severity]};border:1px solid ${SEVERITY_COLORS[issue.severity]};padding:2px 8px;border-radius:2px;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;font-family:'IBM Plex Mono',monospace">${issue.severity}</span>
+            <span style="background:#e3d8bf;color:#6b6354;padding:2px 8px;border-radius:2px;font-size:0.7rem;font-family:'IBM Plex Mono',monospace">${issue.status}</span>
+            ${issue.reportCount > 1 ? `<span style="background:#2b4c53;color:#f3ecde;padding:2px 8px;border-radius:2px;font-size:0.7rem;font-weight:700;font-family:'IBM Plex Mono',monospace">👥 ${issue.reportCount} reports</span>` : ''}
           </div>
         </div>
       `);
@@ -147,7 +150,6 @@ function renderMapMarkers() {
     mapMarkers.push(marker);
   });
 
-  // Fit map to markers
   if (mapMarkers.length > 0) {
     const bounds = new google.maps.LatLngBounds();
     mapMarkers.forEach(m => bounds.extend(m.getPosition()));
@@ -182,11 +184,6 @@ function resetPhoto() {
 }
 
 // ── GEMINI AI — AGENTIC DECISION CHAIN ──
-// Step 1: classify issue from image
-// Step 2: reason about severity
-// Step 3: route to correct department
-// Step 4: auto-draft a notification message
-// All decided autonomously from a single photo upload.
 async function analyzeWithGemini(base64Image) {
   document.getElementById('aiStatus').classList.remove('hidden');
   document.getElementById('aiResult').classList.add('hidden');
@@ -289,7 +286,6 @@ function getLocation() {
       document.getElementById('issueLng').value = longitude;
       document.getElementById('issueLocation').value = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
 
-      // Reverse geocode with Google Maps
       if (window.google) {
         const geocoder = new google.maps.Geocoder();
         geocoder.geocode({ location: { lat: latitude, lng: longitude } }, (results, status) => {
@@ -320,7 +316,7 @@ function findDuplicate(category, lat, lng) {
     if (i.status === 'Resolved') return false;
     const ilat = parseFloat(i.lat), ilng = parseFloat(i.lng);
     if (isNaN(ilat) || isNaN(ilng)) return false;
-    return distanceMeters(lat, lng, ilat, ilng) <= 300; // 300m radius
+    return distanceMeters(lat, lng, ilat, ilng) <= 300;
   });
 }
 
@@ -340,7 +336,6 @@ function submitIssue() {
   const latVal = parseFloat(document.getElementById('issueLat').value);
   const lngVal = parseFloat(document.getElementById('issueLng').value);
 
-  // ── Agentic step: check for an existing nearby report before creating a new one ──
   const dup = (!isNaN(latVal) && !isNaN(lngVal)) ? findDuplicate(category, latVal, lngVal) : null;
 
   if (dup) {
@@ -378,6 +373,9 @@ function submitIssue() {
     notificationDraft: (currentAIResult && currentAIResult.category === category) ? (currentAIResult.notificationDraft || '') : '',
     reportCount: 1,
     mergedReports: [reporter],
+    upvotes: 1,
+    chatHistory: [],
+    resolutionSummary: null,
   };
 
   issues.unshift(issue);
@@ -426,10 +424,15 @@ function renderDashboard() {
       <div>
         <div class="table-title-text">${issue.title} ${issue.reportCount > 1 ? `<span class="dup-badge">👥 ${issue.reportCount}</span>` : ''}</div>
         <div class="table-location">📍 ${issue.location} · by ${issue.reporter} · ${timeAgo(issue.timestamp)}</div>
+        ${issue.status === 'Resolved' && issue.resolutionSummary ? `<div class="resolution-summary">✅ ${issue.resolutionSummary}</div>` : ''}
       </div>
       <span class="table-sev sev-${issue.severity}">${issue.severity}</span>
       <span class="pin-status status-${issue.status.toLowerCase().replace(' ','-')}">${issue.status}</span>
-      <button class="btn-icon share-btn" onclick="openShareCard(${issue.id})" title="Share report card">📤</button>
+      <div class="table-actions">
+        <button class="btn-icon upvote-btn" onclick="upvoteIssue(${issue.id})" title="Upvote this issue">👍 ${issue.upvotes || 1}</button>
+        <button class="btn-icon" onclick="openChat(${issue.id})" title="Ask AI about this issue">💬</button>
+        <button class="btn-icon" onclick="openShareCard(${issue.id})" title="Share report card">📤</button>
+      </div>
       <select class="status-toggle" onchange="updateStatus(${issue.id}, this.value)">
         <option ${issue.status==='Reported'?'selected':''}>Reported</option>
         <option ${issue.status==='In Progress'?'selected':''}>In Progress</option>
@@ -447,6 +450,271 @@ function updateStatus(id, newStatus) {
     updateStats();
     renderDashboard();
     showToast(`Status updated to "${newStatus}"`);
+    if (newStatus === 'Resolved' && !issue.resolutionSummary) {
+      generateResolutionSummary(issue);
+    }
+  }
+}
+
+function upvoteIssue(id) {
+  const issue = issues.find(i => i.id === id);
+  if (!issue) return;
+  issue.upvotes = (issue.upvotes || 1) + 1;
+  localStorage.setItem('civicIssues', JSON.stringify(issues));
+  renderDashboard();
+  showToast('👍 Upvoted!');
+}
+
+// ── AI RESOLUTION SUMMARY (Innovation) ──
+async function generateResolutionSummary(issue) {
+  issue.resolutionSummary = '⏳ Generating AI resolution summary...';
+  renderDashboard();
+
+  if (!GEMINI_API_KEY) {
+    setTimeout(() => {
+      issue.resolutionSummary = `${issue.category} issue resolved. ${issue.department || 'Municipal team'} completed the necessary repair work at ${issue.location}.`;
+      localStorage.setItem('civicIssues', JSON.stringify(issues));
+      renderDashboard();
+    }, 1000);
+    return;
+  }
+
+  const prompt = `Write a brief, realistic 1-2 sentence civic resolution summary for this now-resolved municipal issue, in the style of an official closure note:
+Category: ${issue.category}
+Description: ${issue.description}
+Location: ${issue.location}
+Department: ${issue.department || 'Municipal Office'}
+Respond with ONLY the summary sentence(s), no extra text, no markdown.`;
+
+  try {
+    const response = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.3, maxOutputTokens: 100 }
+      })
+    });
+    const data = await response.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    issue.resolutionSummary = text || `${issue.category} issue resolved by ${issue.department || 'municipal team'}.`;
+  } catch (err) {
+    issue.resolutionSummary = `${issue.category} issue resolved by ${issue.department || 'municipal team'}.`;
+  }
+  localStorage.setItem('civicIssues', JSON.stringify(issues));
+  renderDashboard();
+}
+
+// ── GEMINI ISSUE CLUSTERING (Problem Solving) ──
+async function findClusters() {
+  if (issues.length < 2) {
+    showToast('Need at least 2 reported issues to find clusters', false);
+    return;
+  }
+  const panel = document.getElementById('clusterPanel');
+  panel.classList.remove('hidden');
+  panel.innerHTML = '<p class="cluster-loading">🤖 Analyzing issue patterns nearby...</p>';
+
+  const issueSummaries = issues.map(i =>
+    `- ${i.category} (${i.severity}) at "${i.location}" [lat:${i.lat || '?'}, lng:${i.lng || '?'}], status: ${i.status}`
+  ).join('\n');
+
+  if (!GEMINI_API_KEY) {
+    setTimeout(() => {
+      panel.innerHTML = `<div class="cluster-result">📍 Demo Mode: Based on reported locations, issues of the same category reported close together may indicate a priority zone needing municipal attention. Add your Gemini API key for live AI cluster analysis.</div>`;
+    }, 1000);
+    return;
+  }
+
+  const prompt = `You are a civic-ops AI analyzing a list of reported municipal issues. Identify any geographic or categorical clusters/patterns — e.g. multiple issues of the same type reported close together suggesting a "priority zone" for municipal attention. Be concise (3-5 sentences max). If no clear cluster exists, say so briefly.
+
+Issues:
+${issueSummaries}`;
+
+  try {
+    const response = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.3, maxOutputTokens: 300 }
+      })
+    });
+    const data = await response.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || 'No clear pattern detected.';
+    panel.innerHTML = `<div class="cluster-result">🧭 ${text}</div>`;
+  } catch (err) {
+    panel.innerHTML = `<div class="cluster-result">⚠️ Could not analyze patterns right now. Please try again.</div>`;
+  }
+}
+
+// ── EXPORT REPORT (PDF, with AI executive summary) ──
+async function exportReport() {
+  if (issues.length === 0) {
+    showToast('No issues to export yet', false);
+    return;
+  }
+  showToast('Generating report...');
+
+  let aiSummary = 'AI summary unavailable — no Gemini API key set.';
+  if (GEMINI_API_KEY) {
+    const issueSummaries = issues.map(i => `- ${i.category} (${i.severity}, ${i.status}) at ${i.location}`).join('\n');
+    const prompt = `Write a brief 3-4 sentence executive summary for a municipal civic report, summarizing the overall state of reported community issues below. Mention totals, most common category, and overall urgency level. Respond with ONLY the summary text.
+
+Issues:
+${issueSummaries}`;
+    try {
+      const response = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.3, maxOutputTokens: 250 } })
+      });
+      const data = await response.json();
+      aiSummary = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || aiSummary;
+    } catch (err) { /* keep fallback */ }
+  }
+
+  if (!window.jspdf) { showToast('PDF library not loaded', false); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  let y = 20;
+
+  doc.setFontSize(18);
+  doc.text('CivicLens — Community Issue Report', 14, y); y += 10;
+  doc.setFontSize(10);
+  doc.text(`Generated: ${new Date().toLocaleString()}`, 14, y); y += 10;
+
+  doc.setFontSize(12);
+  doc.text('AI Executive Summary:', 14, y); y += 7;
+  doc.setFontSize(10);
+  const summaryLines = doc.splitTextToSize(aiSummary, 180);
+  doc.text(summaryLines, 14, y); y += summaryLines.length * 5 + 8;
+
+  doc.setFontSize(12);
+  doc.text(`Total Issues: ${issues.length}`, 14, y); y += 6;
+  doc.text(`Resolved: ${issues.filter(i => i.status === 'Resolved').length}`, 14, y); y += 6;
+  doc.text(`In Progress: ${issues.filter(i => i.status !== 'Resolved').length}`, 14, y); y += 6;
+  doc.text(`Critical: ${issues.filter(i => i.severity === 'Critical').length}`, 14, y); y += 10;
+
+  doc.setFontSize(12);
+  doc.text('Issue Log:', 14, y); y += 7;
+  doc.setFontSize(9);
+  issues.forEach(issue => {
+    if (y > 280) { doc.addPage(); y = 20; }
+    const line = `${issue.category} | ${issue.severity} | ${issue.status} | ${issue.location} | by ${issue.reporter}`;
+    const wrapped = doc.splitTextToSize(line, 180);
+    doc.text(wrapped, 14, y);
+    y += wrapped.length * 5 + 3;
+  });
+
+  doc.save('civiclens-report.pdf');
+  showToast('Report downloaded! 📄');
+}
+
+// ── GEMINI FOLLOW-UP Q&A CHAT (Agentic Depth) ──
+function openChat(id) {
+  currentChatIssueId = id;
+  const issue = issues.find(i => i.id === id);
+  if (!issue) return;
+  issue.chatHistory = issue.chatHistory || [];
+  document.getElementById('chatIssueTitle').textContent = issue.title;
+  renderChatMessages(issue);
+  document.getElementById('chatModal').classList.remove('hidden');
+}
+
+function closeChatModal() {
+  document.getElementById('chatModal').classList.add('hidden');
+  currentChatIssueId = null;
+}
+
+function renderChatMessages(issue) {
+  const container = document.getElementById('chatMessages');
+  if (!container) return;
+  const history = issue.chatHistory || [];
+  if (history.length === 0) {
+    container.innerHTML = '<p class="chat-empty">Ask anything about this issue — e.g. "How long will this take?" or "Who should I contact?"</p>';
+    return;
+  }
+  container.innerHTML = history.map(m => `
+    <div class="chat-msg ${m.role}">
+      <span class="chat-bubble">${m.text}</span>
+    </div>
+  `).join('');
+  container.scrollTop = container.scrollHeight;
+}
+
+async function sendChatMessage() {
+  if (isChatLoading || !currentChatIssueId) return;
+  const input = document.getElementById('chatInput');
+  const question = input.value.trim();
+  if (!question) return;
+  const issue = issues.find(i => i.id === currentChatIssueId);
+  if (!issue) return;
+
+  issue.chatHistory = issue.chatHistory || [];
+  issue.chatHistory.push({ role: 'user', text: question });
+  input.value = '';
+  renderChatMessages(issue);
+
+  isChatLoading = true;
+  const sendBtn = document.getElementById('chatSendBtn');
+  if (sendBtn) sendBtn.disabled = true;
+
+  const container = document.getElementById('chatMessages');
+  const typingEl = document.createElement('div');
+  typingEl.className = 'chat-msg model typing';
+  typingEl.innerHTML = '<span class="chat-bubble">Gemini is typing...</span>';
+  container.appendChild(typingEl);
+  container.scrollTop = container.scrollHeight;
+
+  const answer = await askGeminiFollowup(issue, question);
+  issue.chatHistory.push({ role: 'model', text: answer });
+  localStorage.setItem('civicIssues', JSON.stringify(issues));
+  renderChatMessages(issue);
+
+  isChatLoading = false;
+  if (sendBtn) sendBtn.disabled = false;
+}
+
+async function askGeminiFollowup(issue, question) {
+  if (!GEMINI_API_KEY) {
+    const eta = { Critical: '24-48 hours', High: '3-5 days', Medium: '1-2 weeks', Low: '2-4 weeks' }[issue.severity] || 'a few days';
+    return `This is a ${issue.severity} priority ${issue.category} issue. Based on its severity, it's typically resolved within ${eta} by the ${issue.department || 'municipal'} team. For direct updates, you can contact the ${issue.department || 'local municipal office'}.`;
+  }
+
+  const historyText = (issue.chatHistory || [])
+    .slice(0, -1)
+    .map(m => `${m.role === 'user' ? 'Citizen' : 'Assistant'}: ${m.text}`)
+    .join('\n');
+
+  const prompt = `You are a helpful civic assistant for a municipal issue-tracking platform called CivicLens. A citizen reported this issue:
+Category: ${issue.category}
+Severity: ${issue.severity}
+Description: ${issue.description}
+Status: ${issue.status}
+Department responsible: ${issue.department || 'Municipal Office'}
+Location: ${issue.location}
+
+Conversation so far:
+${historyText}
+
+Citizen's new question: ${question}
+
+Answer in 2-3 short, helpful sentences in a realistic civic-assistant tone. If asked about timelines, give a reasonable estimate based on severity (Critical: 24-48 hrs, High: 3-5 days, Medium: 1-2 weeks, Low: 2-4 weeks). If asked who to contact, refer to the responsible department. Respond with ONLY the answer text, no labels.`;
+
+  try {
+    const response = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.4, maxOutputTokens: 200 }
+      })
+    });
+    const data = await response.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "I'm not sure — please contact the responsible department directly.";
+  } catch (err) {
+    return "I couldn't reach Gemini just now — please try again in a moment.";
   }
 }
 
