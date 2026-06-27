@@ -5,16 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>CivicLens — Community Issue Reporter</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <link rel="stylesheet" href="css/style.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
 
   <header class="header">
     <div class="logo">
-      <span class="logo-icon">🏛️</span>
+      <span class="logo-icon">🏙️</span>
       <span class="logo-text">CivicLens</span>
     </div>
     <nav class="nav">
@@ -32,7 +33,7 @@
       <div class="hero-content">
         <div class="hero-tag">AI-Powered Civic Platform</div>
         <h1 class="hero-title">See it. <span class="accent">Snap it.</span> Fix it.</h1>
-        <p class="hero-sub">Upload a photo of any community issue — potholes, leaks, broken lights — and Gemini AI instantly analyzes, categorizes, and pins it on the city map.</p>
+        <p class="hero-sub">Upload a photo of any community issue — potholes, leaks, broken lights — and Gemini AI instantly analyzes, categorizes, routes it to the right department, and pins it on the city map.</p>
         <button class="hero-cta" onclick="showSection('report', document.querySelector('.nav-btn'))">Report an Issue →</button>
       </div>
       <div class="hero-stats">
@@ -139,10 +140,10 @@
       <h2 class="section-title">Live Issue Map</h2>
       <p class="section-sub">All reported community issues pinned in real-time</p>
       <div class="map-legend">
-        <span class="legend-item"><span class="dot" style="background:#a93226"></span> Critical</span>
-        <span class="legend-item"><span class="dot" style="background:#bd6433"></span> High</span>
-        <span class="legend-item"><span class="dot" style="background:#c8932e"></span> Medium</span>
-        <span class="legend-item"><span class="dot" style="background:#5b7563"></span> Low</span>
+        <span class="legend-item"><span class="dot" style="background:#ff4757"></span> Critical</span>
+        <span class="legend-item"><span class="dot" style="background:#ff8c42"></span> High</span>
+        <span class="legend-item"><span class="dot" style="background:#ffd700"></span> Medium</span>
+        <span class="legend-item"><span class="dot" style="background:#00c48c"></span> Low</span>
       </div>
       <div id="map" style="width:100%;height:520px;border-radius:16px;border:1px solid var(--border);"></div>
     </div>
@@ -159,15 +160,26 @@
         <div class="dash-card orange"><div class="dash-num" id="dash-pending">0</div><div class="dash-label">In Progress</div></div>
         <div class="dash-card red"><div class="dash-num" id="dash-critical">0</div><div class="dash-label">Critical Issues</div></div>
       </div>
-      <div class="issues-table-wrap">
-        <div class="table-header-row">
-          <h3 class="table-title">All Reported Issues</h3>
-          <div style="display:flex;gap:0.6rem;flex-wrap:wrap">
-            <button class="btn-secondary small" onclick="findClusters()">🔍 Find Similar Issues Nearby</button>
-            <button class="btn-secondary small" onclick="exportReport()">📄 Export Report</button>
+
+      <!-- AI Clustering Panel -->
+      <div class="cluster-panel card" style="margin-bottom:2rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
+          <div>
+            <div class="ai-section-label" style="margin:0 0 0.3rem">🧠 Gemini-Powered Issue Clustering</div>
+            <p style="color:var(--muted);font-size:0.85rem;margin:0">Send all issues to Gemini to detect patterns and priority zones</p>
           </div>
+          <button class="btn-primary" id="clusterBtn" onclick="findSimilarIssues()">🔍 Find Similar Issues Nearby</button>
         </div>
-        <div class="cluster-panel hidden" id="clusterPanel"></div>
+        <div id="clusterOutput" class="hidden"></div>
+      </div>
+
+      <!-- Export Button -->
+      <div style="display:flex;justify-content:flex-end;margin-bottom:1rem;">
+        <button class="btn-secondary" id="exportBtn" onclick="exportReport()">📄 Export Full Report</button>
+      </div>
+
+      <div class="issues-table-wrap">
+        <h3 class="table-title">All Reported Issues</h3>
         <div id="issuesTable" class="issues-table"></div>
       </div>
     </div>
@@ -182,11 +194,13 @@
     </div>
   </section>
 
+  <!-- TOAST -->
   <div class="toast hidden" id="toast">
     <span class="toast-icon">✅</span>
     <span id="toastMsg">Issue submitted successfully!</span>
   </div>
 
+  <!-- API KEY MODAL -->
   <div class="modal-overlay hidden" id="apiModal">
     <div class="modal">
       <h3>Enter Your Gemini API Key</h3>
@@ -199,6 +213,7 @@
     </div>
   </div>
 
+  <!-- SHARE CARD MODAL -->
   <div class="modal-overlay hidden" id="shareModal">
     <div class="modal">
       <h3>📤 Share Report Card</h3>
@@ -211,22 +226,23 @@
     </div>
   </div>
 
+  <!-- CHAT MODAL -->
   <div class="modal-overlay hidden" id="chatModal">
-    <div class="modal">
-      <h3>💬 Ask AI about: <span id="chatIssueTitle"></span></h3>
-      <p>Ask Gemini follow-up questions about this issue — e.g. timelines or who to contact.</p>
-      <div class="chat-messages" id="chatMessages"></div>
-      <div class="chat-input-row">
-        <input type="text" class="form-input" id="chatInput" placeholder="e.g. How long will this take to fix?" onkeydown="if(event.key==='Enter') sendChatMessage()"/>
-        <button class="btn-primary" id="chatSendBtn" onclick="sendChatMessage()">Send</button>
+    <div class="modal chat-modal">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+        <h3 id="chatIssueTitle" style="font-size:1rem;margin:0">💬 Ask AI</h3>
+        <button class="btn-secondary small" onclick="closeChatModal()">✕ Close</button>
       </div>
-      <div class="modal-btns">
-        <button class="btn-secondary" onclick="closeChatModal()">Close</button>
+      <div id="chatMessages" class="chat-messages"></div>
+      <div class="chat-input-row">
+        <input type="text" class="form-input" id="chatInput"
+          placeholder="e.g. How long will this take to fix?"
+          style="flex:1"/>
+        <button class="btn-primary" onclick="sendChatMessage()" style="white-space:nowrap">Send →</button>
       </div>
     </div>
   </div>
 
   <script src="js/app.js"></script>
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBt5PUBn8luuvKPyE8QPzniJV9sCX9PjXg&callback=initMap&libraries=places" async></script>
 </body>
 </html>
