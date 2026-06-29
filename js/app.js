@@ -255,16 +255,22 @@ function escalateSeverity(sev) {
 function getLocation() {
   if (!navigator.geolocation) return alert('Geolocation not supported');
   navigator.geolocation.getCurrentPosition(
-    (pos) => {
+    async (pos) => {
       const { latitude, longitude } = pos.coords;
       document.getElementById('issueLat').value = latitude;
       document.getElementById('issueLng').value = longitude;
       document.getElementById('issueLocation').value = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`);
+        const data = await res.json();
+        if (data.display_name) {
+          document.getElementById('issueLocation').value = data.display_name;
+        }
+      } catch {}
     },
     () => alert('Could not get location. Please enter manually.')
   );
 }
-
 // ── DUPLICATE DETECTION ──
 function distanceMeters(lat1, lng1, lat2, lng2) {
   const R = 6371000;
