@@ -32,6 +32,7 @@ Community Hero — Hyperlocal Problem Solver
 - Firebase Hosting (Google Cloud)
 
 ## 📁 File Structure
+```
 community-hero/
 ├── index.html
 ├── css/
@@ -39,6 +40,7 @@ community-hero/
 ├── js/
 │   └── app.js
 └── README.md
+```
 
 ## 🛠️ Technologies
 - HTML, CSS, Vanilla JavaScript
